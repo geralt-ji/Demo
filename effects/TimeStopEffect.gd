@@ -7,7 +7,7 @@ extends Node
 # 时停状态
 var is_time_stopped: bool = false
 var original_time_scale: float = 1.0
-var stop_duration: float = 1.0  # 时停持续时间
+var stop_duration: float = 3.0  # 时停持续时间（3秒）
 
 # 视觉特效
 var screen_overlay: ColorRect
@@ -67,16 +67,13 @@ func trigger_time_stop(impact_position: Vector2 = Vector2.ZERO):
 	# 开始视觉特效
 	start_visual_effect()
 	
-	# 设置时间缩放为0（完全停止）
-	Engine.time_scale = 0.0
+	# 设置时间缩放为很小的值而不是0（避免完全停止）
+	Engine.time_scale = 0.01  # 极慢但不完全停止
 	
-	# 使用真实时间计时器来结束时停
-	var timer = Timer.new()
-	timer.wait_time = stop_duration
+	# 使用 get_tree().create_timer 来创建不受时间缩放影响的计时器
+	var timer = get_tree().create_timer(stop_duration, true, false, true)  # 最后一个参数表示忽略时间缩放
 	timer.timeout.connect(_end_time_stop)
-	timer.process_mode = Node.PROCESS_MODE_ALWAYS  # 即使时间停止也继续运行
-	add_child(timer)
-	timer.start()
+	print("⏰ 时停计时器启动，将在 %s 秒后恢复" % str(stop_duration))
 
 func start_visual_effect():
 	"""开始视觉特效"""
@@ -90,13 +87,15 @@ func start_visual_effect():
 func _end_time_stop():
 	"""结束时停特效"""
 	if not is_time_stopped:
+		print("⚠️ 时停已经结束，跳过重复调用")
 		return
 	
-	print("▶️ 时停特效结束")
+	print("▶️ 时停特效结束，恢复正常时间流速")
 	is_time_stopped = false
 	
 	# 恢复时间缩放
 	Engine.time_scale = original_time_scale
+	print("🔄 时间缩放恢复到: %s" % str(original_time_scale))
 	
 	# 清除视觉效果
 	if screen_overlay:
@@ -104,11 +103,6 @@ func _end_time_stop():
 	
 	# 发出时停结束信号
 	time_stop_ended.emit()
-	
-	# 清理计时器
-	for child in get_children():
-		if child is Timer:
-			child.queue_free()
 
 func set_stop_duration(duration: float):
 	"""设置时停持续时间"""

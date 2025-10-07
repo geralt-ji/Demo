@@ -6,6 +6,9 @@ var deflect_force = 600
 var move_speed = 200
 var info_panel: Control = null
 
+# 音效控制
+var hit_sound_played = false  # 防止受击音效重复播放
+
 # 管理器引用
 var time_stop_effect: Node = null
 
@@ -85,8 +88,11 @@ func _physics_process(delta):
 			
 		var distance = global_position.distance_to(enemy.global_position)
 		if distance <= collision_distance:
-				# 🎵 播放受击音效
-				AudioManager.play_hit_sound()
+				# 🎵 播放受击音效（只播放一次）
+				if not hit_sound_played:
+					print("💥 玩家受击，播放音效")
+					AudioManager.play_hit_sound()
+					hit_sound_played = true
 				if info_panel:
 					info_panel.show_warning_message("💥 被敌人撞到了！游戏结束！")
 				game_over()
@@ -96,21 +102,24 @@ func _input(event):
 	if event.is_action_pressed("ui_accept") or (event is InputEventMouseButton and event.pressed):
 		deflect()
 
+func trigger_time_stop_on_success(deflected_count: int):
+	"""弹反成功时触发时停特效"""
+	if deflected_count > 0 and time_stop_effect:
+		# ⏸️ 只有弹反成功才触发时停特效（传递玩家位置作为冲击点）
+		time_stop_effect.trigger_time_stop(global_position)
+
 func deflect():
 	"""弹反功能"""
+	print("🛡️ deflect() 函数被调用")
+	
 	if not can_deflect:
+		print("❌ 弹反冷却中，无法执行")
 		if info_panel:
 			info_panel.show_warning_message("⏳ 弹反冷却中，请稍等...")
 		return
 	
+	print("✅ 开始执行弹反")
 	can_deflect = false
-	
-	# 🎵 播放弹反音效
-	AudioManager.play_deflect_sound()
-	
-	# ⏸️ 触发时停特效（传递玩家位置作为冲击点）
-	if time_stop_effect:
-		time_stop_effect.trigger_time_stop(global_position)
 	
 	# 视觉反馈 - 改变颜色
 	$ColorRect.color = Color.YELLOW
@@ -144,6 +153,11 @@ func deflect():
 				enemy.add_to_group("deflected")
 				deflected_count += 1
 				
+				# 🎵 播放弹反音效（只在真正弹反到怪物时播放）
+				if deflected_count == 1:  # 只在第一次弹反时播放音效
+					print("🎵 弹反成功，播放音效")
+					AudioManager.play_deflect_sound()
+				
 				# 添加视觉效果 - 让被弹反的敌人变色
 				if enemy.has_node("ColorRect"):
 					enemy.get_node("ColorRect").color = Color.ORANGE
@@ -154,6 +168,9 @@ func deflect():
 			info_panel.show_success_message("✨ 弹反成功！击退了 " + str(deflected_count) + " 个敌人")
 		else:
 			info_panel.show_message("🎯 弹反释放，但没有击中敌人")
+	
+	# 🎯 只有弹反成功才触发时停
+	trigger_time_stop_on_success(deflected_count)
 	
 	# 冷却时间后恢复
 	await get_tree().create_timer(deflect_cooldown).timeout

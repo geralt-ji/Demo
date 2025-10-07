@@ -16,6 +16,9 @@ var animation_speed: float = 25.0  # 25帧每秒，播放1秒
 
 func _ready():
 	"""初始化特效组件"""
+	# 确保特效在时停期间也能正常播放
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	
 	load_impact_textures()
 	setup_animated_sprite()
 	setup_particle_effect()

@@ -2,12 +2,13 @@
 
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
-uid="uid://0iuujby31q04"
-valid=false
+uid="uid://b8qh6bchs71y5"
+path="res://.godot/imported/hit.ogg-71a00b0f75f9005bfd0ab2da894e5c8a.oggvorbisstr"
 
 [deps]
 
 source_file="res://sounds/hit.ogg"
+dest_files=["res://.godot/imported/hit.ogg-71a00b0f75f9005bfd0ab2da894e5c8a.oggvorbisstr"]
 
 [params]
 
