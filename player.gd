@@ -16,6 +16,9 @@ var time_stop_effect: Node = null
 var game_line_y: float = 0
 
 func _ready():
+	# 添加到player组
+	add_to_group("player")
+	
 	# 设置玩家颜色为蓝色
 	$ColorRect.color = Color.BLUE
 
@@ -31,9 +34,9 @@ func set_time_stop_effect(effect: Node):
 
 func set_game_line(line_y: float):
 	game_line_y = line_y
-	# 设置玩家位置到线上中央
+	# 设置玩家位置到屏幕左侧，线的上方
 	var screen_size = get_viewport().get_visible_rect().size
-	position = Vector2(screen_size.x / 2, game_line_y)
+	position = Vector2(100, game_line_y - 50)  # 左侧100像素，线上方50像素
 
 func _physics_process(delta):
 	# 玩家左右移动
@@ -48,12 +51,12 @@ func _physics_process(delta):
 	
 	move_and_slide()
 	
-	# 确保玩家始终在线上
-	position.y = game_line_y
+	# 确保玩家始终在线的上方
+	position.y = game_line_y - 50
 	
-	# 限制玩家在屏幕范围内
+	# 限制玩家在屏幕左侧范围内
 	var screen_size = get_viewport().get_visible_rect().size
-	position.x = clamp(position.x, 25, screen_size.x - 25)
+	position.x = clamp(position.x, 25, screen_size.x / 2 - 25)  # 只能在屏幕左半部分移动
 	
 	# 检测与敌人的碰撞 - 使用slide_collision
 	for i in get_slide_collision_count():
@@ -173,7 +176,9 @@ func deflect():
 	trigger_time_stop_on_success(deflected_count)
 	
 	# 冷却时间后恢复
-	await get_tree().create_timer(deflect_cooldown).timeout
+	var tree = get_tree()
+	if tree:
+		await tree.create_timer(deflect_cooldown).timeout
 	can_deflect = true
 	$ColorRect.color = Color.BLUE
 	
@@ -182,5 +187,10 @@ func deflect():
 		info_panel.update_deflect_status(true)
 
 func game_over():
-	await get_tree().create_timer(1.0).timeout
-	get_tree().reload_current_scene()
+	var tree = get_tree()
+	if tree:
+		await tree.create_timer(1.0).timeout
+		if tree and is_instance_valid(self):
+			tree.reload_current_scene()
+	else:
+		print("Error: Scene tree is null, cannot reload scene")
