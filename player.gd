@@ -3,9 +3,14 @@ extends CharacterBody2D
 var can_deflect = true
 var deflect_cooldown = 0.5
 var deflect_force = 600
-var game_line_y: float = 0
 var move_speed = 200
 var info_panel: Control = null
+
+# 管理器引用
+var time_stop_effect: Node = null
+
+# GameEntity 功能
+var game_line_y: float = 0
 
 func _ready():
 	# 设置玩家颜色为蓝色
@@ -14,6 +19,12 @@ func _ready():
 func set_info_panel(panel: Control):
 	"""设置信息面板引用"""
 	info_panel = panel
+
+
+
+func set_time_stop_effect(effect: Node):
+	"""设置时停特效引用"""
+	time_stop_effect = effect
 
 func set_game_line(line_y: float):
 	game_line_y = line_y
@@ -44,8 +55,16 @@ func _physics_process(delta):
 	# 检测与敌人的碰撞 - 使用slide_collision
 	for i in get_slide_collision_count():
 		var collision = get_slide_collision(i)
+		if not collision:
+			continue
+		
 		var collider = collision.get_collider()
-		if collider and collider.is_in_group("enemies") and not collider.is_in_group("deflected"):
+		if not collider or not is_instance_valid(collider):
+			continue
+			
+		if collider.is_in_group("enemies") and not collider.is_in_group("deflected"):
+			# 🎵 播放受击音效
+			AudioManager.play_hit_sound()
 			if info_panel:
 				info_panel.show_warning_message("💥 被敌人撞到了！游戏结束！")
 			game_over()
@@ -53,11 +72,21 @@ func _physics_process(delta):
 	
 	# 额外的距离检测 - 防止碰撞检测遗漏
 	var collision_distance = 30.0  # 碰撞距离阈值
-	var enemies = get_tree().get_nodes_in_group("enemies")
+	var scene_tree = get_tree()
+	if not scene_tree:
+		return
+		
+	var enemies = scene_tree.get_nodes_in_group("enemies")
 	for enemy in enemies:
-		if enemy and is_instance_valid(enemy) and not enemy.is_in_group("deflected"):
-			var distance = global_position.distance_to(enemy.global_position)
-			if distance <= collision_distance:
+		if not enemy or not is_instance_valid(enemy):
+			continue
+		if enemy.is_in_group("deflected"):
+			continue
+			
+		var distance = global_position.distance_to(enemy.global_position)
+		if distance <= collision_distance:
+				# 🎵 播放受击音效
+				AudioManager.play_hit_sound()
 				if info_panel:
 					info_panel.show_warning_message("💥 被敌人撞到了！游戏结束！")
 				game_over()
@@ -68,12 +97,21 @@ func _input(event):
 		deflect()
 
 func deflect():
+	"""弹反功能"""
 	if not can_deflect:
 		if info_panel:
 			info_panel.show_warning_message("⏳ 弹反冷却中，请稍等...")
 		return
 	
 	can_deflect = false
+	
+	# 🎵 播放弹反音效
+	AudioManager.play_deflect_sound()
+	
+	# ⏸️ 触发时停特效（传递玩家位置作为冲击点）
+	if time_stop_effect:
+		time_stop_effect.trigger_time_stop(global_position)
+	
 	# 视觉反馈 - 改变颜色
 	$ColorRect.color = Color.YELLOW
 	
@@ -86,13 +124,22 @@ func deflect():
 	var deflected_count = 0
 	
 	# 获取所有敌人并检查距离
-	var enemies = get_tree().get_nodes_in_group("enemies")
+	var scene_tree = get_tree()
+	if not scene_tree:
+		return
+		
+	var enemies = scene_tree.get_nodes_in_group("enemies")
 	for enemy in enemies:
-		if enemy and is_instance_valid(enemy) and not enemy.is_in_group("deflected"):
-			var distance = global_position.distance_to(enemy.global_position)
-			if distance <= deflect_range:
-				# 计算弹反方向（反向）
-				var direction = (enemy.global_position - global_position).normalized()
+		if not enemy or not is_instance_valid(enemy):
+			continue
+		if enemy.is_in_group("deflected"):
+			continue
+			
+		var distance = global_position.distance_to(enemy.global_position)
+		if distance <= deflect_range:
+			# 计算弹反方向（反向）
+			var direction = (enemy.global_position - global_position).normalized()
+			if direction.length() > 0:  # 确保方向向量有效
 				enemy.linear_velocity = -direction * deflect_force  # 反向弹飞
 				enemy.add_to_group("deflected")
 				deflected_count += 1

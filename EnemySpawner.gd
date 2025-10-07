@@ -6,7 +6,10 @@ var spawn_interval = 3.0  # 每3秒生成一个敌人
 var game_line_y: float = 0
 
 func _ready():
-	enemy_scene = preload("res://Enemy.tscn")
+	if ResourceLoader.exists("res://Enemy.tscn"):
+		enemy_scene = preload("res://Enemy.tscn")
+	else:
+		print("错误：Enemy.tscn 文件不存在！")
 
 func set_game_line(line_y: float):
 	game_line_y = line_y
@@ -18,10 +21,30 @@ func _process(delta):
 		spawn_timer = 0.0
 
 func spawn_enemy():
+	if not enemy_scene:
+		print("错误：enemy_scene 为空，无法生成敌人")
+		return
+		
 	var enemy = enemy_scene.instantiate()
-	get_parent().add_child(enemy)
+	if not enemy:
+		print("错误：无法实例化敌人")
+		return
+		
+	var parent = get_parent()
+	if not parent:
+		print("错误：无法获取父节点")
+		enemy.queue_free()
+		return
+		
+	parent.add_child(enemy)
 	
-	var screen_size = get_viewport().get_visible_rect().size
+	var viewport = get_viewport()
+	if not viewport:
+		print("错误：无法获取视口")
+		enemy.queue_free()
+		return
+		
+	var screen_size = viewport.get_visible_rect().size
 	
 	# 只从左右两侧生成敌人，都在游戏线上
 	var spawn_from_left = randf() > 0.5
@@ -35,4 +58,5 @@ func spawn_enemy():
 		spawn_pos = Vector2(screen_size.x + 50, game_line_y)
 	
 	enemy.position = spawn_pos
-	enemy.set_game_line(game_line_y)
+	if enemy.has_method("set_game_line"):
+		enemy.set_game_line(game_line_y)

@@ -4,6 +4,9 @@ extends Node2D
 var game_line_y: float
 var info_panel: Control
 
+# 管理器引用
+var time_stop_effect: Node
+
 func _ready():
 	# 设置背景色
 	RenderingServer.set_default_clear_color(Color(0.2, 0.3, 0.4))  # 深蓝灰色背景
@@ -12,13 +15,17 @@ func _ready():
 	var screen_size = get_viewport().get_visible_rect().size
 	game_line_y = screen_size.y / 2
 	
+	# 创建管理器
+	create_managers()
+	
 	# 创建信息播报窗口
 	create_info_panel()
 	
-	# 通知子节点游戏线位置
+	# 通知子节点游戏线位置和管理器引用
 	if has_node("Player"):
 		$Player.set_game_line(game_line_y)
 		$Player.set_info_panel(info_panel)  # 传递信息面板引用
+		$Player.set_time_stop_effect(time_stop_effect)  # 传递时停特效
 	if has_node("EnemySpawner"):
 		$EnemySpawner.set_game_line(game_line_y)
 
@@ -66,6 +73,18 @@ func create_info_panel():
 	
 	# 最后添加到场景树
 	add_child(info_panel)
+
+func create_managers():
+	"""创建特效管理器"""
+	# 创建时停特效管理器
+	time_stop_effect = Node.new()
+	time_stop_effect.name = "TimeStopEffect"
+	var timestop_script = load("res://effects/TimeStopEffect.gd")
+	time_stop_effect.set_script(timestop_script)
+	add_child(time_stop_effect)
+	
+	print("🎮 特效管理器已创建")
+	print("🎵 AudioManager 单例已自动加载")
 
 func _draw():
 	# 绘制中央线条
