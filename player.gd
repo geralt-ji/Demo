@@ -15,12 +15,23 @@ var time_stop_effect: Node = null
 # GameEntity 功能
 var game_line_y: float = 0
 
+# 时停能量条系统
+var max_energy: float = 100.0
+var current_energy: float = 100.0
+var energy_regen_rate: float = 5.0  # 每秒恢复5点
+var deflect_energy_gain: float = 30.0  # 弹反获得30点能量
+var energy_bar: ColorRect = null
+var energy_bar_container: Control = null
+
 func _ready():
 	# 添加到player组
 	add_to_group("player")
 	
 	# 设置玩家颜色为蓝色
 	$ColorRect.color = Color.BLUE
+	
+	# 初始化能量条引用
+	call_deferred("_initialize_energy_bar")
 
 func set_info_panel(panel: Control):
 	"""设置信息面板引用"""
@@ -39,6 +50,11 @@ func set_game_line(line_y: float):
 	position = Vector2(100, game_line_y - 50)  # 左侧100像素，线上方50像素
 
 func _physics_process(delta):
+	# 能量恢复
+	if current_energy < max_energy:
+		current_energy = min(current_energy + energy_regen_rate * delta, max_energy)
+		_update_energy_bar()
+	
 	# 玩家左右移动
 	var input_dir = 0
 	if Input.is_action_pressed("ui_left"):
@@ -107,9 +123,13 @@ func _input(event):
 
 func trigger_time_stop_on_success(deflected_count: int):
 	"""弹反成功时触发时停特效"""
-	if deflected_count > 0 and time_stop_effect:
-		# ⏸️ 只有弹反成功才触发时停特效（传递玩家位置作为冲击点）
+	if deflected_count > 0 and time_stop_effect and can_use_timestop():
+		# ⏸️ 只有弹反成功且能量条满时才触发时停特效（传递玩家位置作为冲击点）
 		time_stop_effect.trigger_time_stop(global_position)
+		# 使用时停后消耗所有能量
+		current_energy = 0.0
+		_update_energy_bar()
+		print("⏸️ 时停触发！能量消耗完毕")
 
 func deflect():
 	"""弹反功能"""
@@ -172,6 +192,11 @@ func deflect():
 		else:
 			info_panel.show_message("🎯 弹反释放，但没有击中敌人")
 	
+	# 弹反成功时增加能量
+	if deflected_count > 0:
+		add_energy(deflect_energy_gain)
+		print("⚡ 弹反成功，获得 " + str(deflect_energy_gain) + " 点能量，当前能量: " + str(current_energy))
+	
 	# 🎯 只有弹反成功才触发时停
 	trigger_time_stop_on_success(deflected_count)
 	
@@ -194,3 +219,35 @@ func game_over():
 			tree.reload_current_scene()
 	else:
 		print("Error: Scene tree is null, cannot reload scene")
+
+# 能量条系统函数
+func _initialize_energy_bar():
+	"""初始化能量条引用"""
+	var tree = get_tree()
+	if tree:
+		energy_bar_container = tree.get_first_node_in_group("energy_bar_container")
+		if not energy_bar_container:
+			# 通过路径查找能量条
+			var main_node = tree.get_first_node_in_group("main")
+			if not main_node:
+				main_node = tree.current_scene
+			if main_node:
+				energy_bar_container = main_node.get_node_or_null("UI/EnergyBarContainer")
+				if energy_bar_container:
+					energy_bar = energy_bar_container.get_node_or_null("EnergyBar")
+					_update_energy_bar()
+
+func _update_energy_bar():
+	"""更新能量条显示"""
+	if energy_bar and energy_bar_container:
+		var energy_percentage = current_energy / max_energy
+		energy_bar.scale.x = energy_percentage
+
+func add_energy(amount: float):
+	"""增加能量"""
+	current_energy = min(current_energy + amount, max_energy)
+	_update_energy_bar()
+
+func can_use_timestop() -> bool:
+	"""检查是否可以使用时停"""
+	return current_energy >= max_energy
