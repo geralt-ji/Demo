@@ -59,7 +59,14 @@ func set_game_line(line_y: float):
 func start_dash_cycle():
 	"""开始冲刺循环"""
 	while is_instance_valid(self) and can_dash:
-		await get_tree().create_timer(dash_cooldown).timeout
+		# 若被弹反，停止冲刺循环
+		if is_in_group("deflected"):
+			can_dash = false
+			break
+		var tree = get_tree()
+		if not tree:
+			break
+		await tree.create_timer(dash_cooldown).timeout
 		if is_instance_valid(self) and can_dash:
 			await perform_dash()
 
@@ -67,12 +74,23 @@ func perform_dash():
 	"""执行冲刺攻击"""
 	if is_dashing or not can_dash:
 		return
+
+	# 若已被弹反，停止冲刺行为
+	if is_in_group("deflected"):
+		can_dash = false
+		is_dashing = false
+		hide_warning_line()
+		linear_velocity = Vector2.ZERO
+		return
 	
 	# 显示警告线
 	show_warning_line()
 	
 	# 等待警告时间
-	await get_tree().create_timer(dash_warning_time).timeout
+	var tree_warn = get_tree()
+	if not tree_warn:
+		return
+	await tree_warn.create_timer(dash_warning_time).timeout
 	
 	if not is_instance_valid(self):
 		return
@@ -90,9 +108,22 @@ func perform_dash():
 	var max_dash_time = 2.0
 	
 	while is_dashing and dash_time < max_dash_time and position.x > target_x:
-		await get_tree().process_frame
+		var tree_loop = get_tree()
+		if not tree_loop:
+			break
+		await tree_loop.process_frame
 		dash_time += get_process_delta_time()
+		# 若在冲刺中被弹反，立即停止
+		if is_in_group("deflected"):
+			break
 	
+	# 若已被弹反，停止后续返回逻辑
+	if is_in_group("deflected"):
+		is_dashing = false
+		linear_velocity = Vector2.ZERO
+		hide_warning_line()
+		return
+
 	# 冲刺结束，返回原位
 	is_dashing = false
 	linear_velocity = Vector2.ZERO
@@ -121,14 +152,6 @@ func _physics_process(delta):
 		position.y = game_line_y - 50  # 与玩家相同的Y轴位置
 		position.x = fixed_position_x
 	
-	# 检测与玩家的碰撞（扩大检测范围，因为玩家在线上方）
-	var player = get_tree().get_first_node_in_group("player")
-	if player and is_dashing:
-		var distance = global_position.distance_to(player.global_position)
-		if distance <= 60:  # 扩大碰撞检测范围
-			# 直接触发玩家死亡
-			if not player.hit_sound_played:
-				print("💥 Boss撞击玩家，播放音效")
-				AudioManager.play_hit_sound()
-				player.hit_sound_played = true
-			player.game_over()
+	# Boss不再有独立的碰撞检测逻辑
+	# 让玩家的统一碰撞检测系统处理所有敌人（包括Boss）
+	# 这样Boss也会遵循弹反规则

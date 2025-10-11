@@ -4,10 +4,13 @@ extends Node2D
 @export var boss_enemy_scene: PackedScene
 var spawn_timer = 0.0
 var spawn_interval = 3.0  # 每3秒生成一个敌人
-var boss_spawn_chance = 0.2  # 20% 概率生成Boss
+var enemy_count = 0  # 敌人计数器
 var game_line_y: float = 0
 
 func _ready():
+	# 加入分组，便于在游戏结束时统一管理
+	add_to_group("spawners")
+
 	# 加载普通怪物场景
 	if ResourceLoader.exists("res://Enemy.tscn"):
 		normal_enemy_scene = preload("res://Enemy.tscn")
@@ -40,9 +43,17 @@ func spawn_enemy():
 		# 如果Boss存在，不生成任何怪物
 		return
 	else:
-		# 如果没有Boss，随机选择生成普通怪物还是Boss
-		is_boss = randf() < boss_spawn_chance
-		enemy_scene = boss_enemy_scene if is_boss else normal_enemy_scene
+		# 增加敌人计数
+		enemy_count += 1
+		
+		# 第三个敌人必须是Boss
+		if enemy_count == 3:
+			is_boss = true
+			enemy_scene = boss_enemy_scene
+		else:
+			# 其他位置生成普通敌人
+			is_boss = false
+			enemy_scene = normal_enemy_scene
 	
 	if not enemy_scene:
 		print("错误：enemy_scene 为空，无法生成敌人")

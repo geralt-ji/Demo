@@ -10,18 +10,18 @@ var info_panel: Control = null
 var hit_sound_played = false  # 防止受击音效重复播放
 
 # 管理器引用
-var time_stop_effect: Node = null
+# var time_stop_effect: Node = null  # 时停功能暂时注释
 
 # GameEntity 功能
 var game_line_y: float = 0
 
-# 时停能量条系统
-var max_energy: float = 100.0
-var current_energy: float = 100.0
-var energy_regen_rate: float = 5.0  # 每秒恢复5点
-var deflect_energy_gain: float = 30.0  # 弹反获得30点能量
-var energy_bar: ColorRect = null
-var energy_bar_container: Control = null
+# 时停能量条系统 - 暂时注释
+# var max_energy: float = 100.0
+# var current_energy: float = 100.0
+# var energy_regen_rate: float = 5.0  # 每秒恢复5点
+# var deflect_energy_gain: float = 30.0  # 弹反获得30点能量
+# var energy_bar: ColorRect = null
+# var energy_bar_container: Control = null
 
 func _ready():
 	# 添加到player组
@@ -30,8 +30,8 @@ func _ready():
 	# 设置玩家颜色为蓝色
 	$ColorRect.color = Color.BLUE
 	
-	# 初始化能量条引用
-	call_deferred("_initialize_energy_bar")
+	# 初始化能量条引用 - 暂时注释
+	# call_deferred("_initialize_energy_bar")
 
 func set_info_panel(panel: Control):
 	"""设置信息面板引用"""
@@ -39,9 +39,9 @@ func set_info_panel(panel: Control):
 
 
 
-func set_time_stop_effect(effect: Node):
-	"""设置时停特效引用"""
-	time_stop_effect = effect
+# func set_time_stop_effect(effect: Node):
+# 	"""设置时停特效引用"""
+# 	time_stop_effect = effect
 
 func set_game_line(line_y: float):
 	game_line_y = line_y
@@ -50,63 +50,45 @@ func set_game_line(line_y: float):
 	position = Vector2(100, game_line_y - 50)  # 左侧100像素，线上方50像素
 
 func _physics_process(delta):
-	# 能量恢复
-	if current_energy < max_energy:
-		current_energy = min(current_energy + energy_regen_rate * delta, max_energy)
-		_update_energy_bar()
+	# 能量恢复 - 暂时注释
+	# if current_energy < max_energy:
+	# 	current_energy = min(current_energy + energy_regen_rate * delta, max_energy)
+	# 	_update_energy_bar()
 	
 	# 玩家左右移动
 	var input_dir = 0
-	if Input.is_action_pressed("ui_left"):
-		input_dir = -1
-	elif Input.is_action_pressed("ui_right"):
-		input_dir = 1
+	if Input.is_action_pressed("ui_left") or Input.is_action_pressed("move_left"):
+		input_dir -= 1
+	if Input.is_action_pressed("ui_right") or Input.is_action_pressed("move_right"):
+		input_dir += 1
 	
+	# 设置水平速度
 	velocity.x = input_dir * move_speed
-	velocity.y = 0  # 确保玩家不会上下移动
 	
+	# 垂直方向保持在游戏线上
+	velocity.y = 0
+	
+	# 移动
 	move_and_slide()
 	
-	# 确保玩家始终在线的上方
-	position.y = game_line_y - 50
-	
-	# 限制玩家在屏幕左侧范围内
+	# 限制玩家在屏幕范围内
 	var screen_size = get_viewport().get_visible_rect().size
-	position.x = clamp(position.x, 25, screen_size.x / 2 - 25)  # 只能在屏幕左半部分移动
+	position.x = clamp(position.x, 50, screen_size.x - 50)
+	position.y = game_line_y - 50  # 保持在线上方
 	
-	# 检测与敌人的碰撞 - 使用slide_collision
-	for i in get_slide_collision_count():
-		var collision = get_slide_collision(i)
-		if not collision:
-			continue
-		
-		var collider = collision.get_collider()
-		if not collider or not is_instance_valid(collider):
-			continue
-			
-		if collider.is_in_group("enemies") and not collider.is_in_group("deflected"):
-			# 🎵 播放受击音效
-			AudioManager.play_hit_sound()
-			if info_panel:
-				info_panel.show_warning_message("💥 被敌人撞到了！游戏结束！")
-			game_over()
-			return
-	
-	# 额外的距离检测 - 防止碰撞检测遗漏
-	var collision_distance = 30.0  # 碰撞距离阈值
-	var scene_tree = get_tree()
-	if not scene_tree:
-		return
-		
-	var enemies = scene_tree.get_nodes_in_group("enemies")
+	# 检测与敌人的碰撞
+	# 检测敌人碰撞（距离检测）
+	var enemies = get_tree().get_nodes_in_group("enemies")
 	for enemy in enemies:
-		if not enemy or not is_instance_valid(enemy):
-			continue
-		if enemy.is_in_group("deflected"):
-			continue
+		if enemy and is_instance_valid(enemy):
+			var distance = global_position.distance_to(enemy.global_position)
+			var collision_distance = 25.0  # 碰撞检测距离（减小到25像素，给弹反更多机会）
 			
-		var distance = global_position.distance_to(enemy.global_position)
-		if distance <= collision_distance:
+			# 检查敌人是否被弹反（在deflected组中）
+			if enemy.is_in_group("deflected"):
+				continue  # 跳过已被弹反的敌人
+			
+			if distance <= collision_distance:
 				# 🎵 播放受击音效（只播放一次）
 				if not hit_sound_played:
 					print("💥 玩家受击，播放音效")
@@ -121,15 +103,15 @@ func _input(event):
 	if event.is_action_pressed("ui_accept") or (event is InputEventMouseButton and event.pressed):
 		deflect()
 
-func trigger_time_stop_on_success(deflected_count: int):
-	"""弹反成功时触发时停特效"""
-	if deflected_count > 0 and time_stop_effect and can_use_timestop():
-		# ⏸️ 只有弹反成功且能量条满时才触发时停特效（传递玩家位置作为冲击点）
-		time_stop_effect.trigger_time_stop(global_position)
-		# 使用时停后消耗所有能量
-		current_energy = 0.0
-		_update_energy_bar()
-		print("⏸️ 时停触发！能量消耗完毕")
+# func trigger_time_stop_on_success(deflected_count: int):
+# 	"""弹反成功时触发时停特效"""
+# 	if deflected_count > 0 and time_stop_effect and can_use_timestop():
+# 		# ⏸️ 只有弹反成功且能量条满时才触发时停特效（传递玩家位置作为冲击点）
+# 		time_stop_effect.trigger_time_stop(global_position)
+# 		# 使用时停后消耗所有能量
+# 		current_energy = 0.0
+# 		_update_energy_bar()
+# 		print("⏸️ 时停触发！能量消耗完毕")
 
 func deflect():
 	"""弹反功能"""
@@ -153,52 +135,41 @@ func deflect():
 	
 	# 检测附近的敌人并弹反
 	var deflect_range = 80.0  # 弹反范围
+	var enemies = get_tree().get_nodes_in_group("enemies")
 	var deflected_count = 0
 	
-	# 获取所有敌人并检查距离
-	var scene_tree = get_tree()
-	if not scene_tree:
-		return
-		
-	var enemies = scene_tree.get_nodes_in_group("enemies")
 	for enemy in enemies:
-		if not enemy or not is_instance_valid(enemy):
-			continue
-		if enemy.is_in_group("deflected"):
-			continue
-			
-		var distance = global_position.distance_to(enemy.global_position)
-		if distance <= deflect_range:
-			# 计算弹反方向（反向）
-			var direction = (enemy.global_position - global_position).normalized()
-			if direction.length() > 0:  # 确保方向向量有效
-				enemy.linear_velocity = -direction * deflect_force  # 反向弹飞
+		if enemy and is_instance_valid(enemy):
+			var distance = global_position.distance_to(enemy.global_position)
+			if distance <= deflect_range:
+				print("🎯 弹反敌人，距离: " + str(distance))
+				
+				# 🎵 播放弹反音效
+				AudioManager.play_deflect_sound()
+				
+				# 将敌人加入deflected组
 				enemy.add_to_group("deflected")
+				
+				# 给敌人一个向右的推力
+				if enemy.has_method("apply_central_impulse"):
+					var push_force = Vector2(deflect_force, -200)  # 向右上推
+					enemy.apply_central_impulse(push_force)
+					print("💨 对敌人施加推力: " + str(push_force))
+				
 				deflected_count += 1
-				
-				# 🎵 播放弹反音效（只在真正弹反到怪物时播放）
-				if deflected_count == 1:  # 只在第一次弹反时播放音效
-					print("🎵 弹反成功，播放音效")
-					AudioManager.play_deflect_sound()
-				
-				# 添加视觉效果 - 让被弹反的敌人变色
-				if enemy.has_node("ColorRect"):
-					enemy.get_node("ColorRect").color = Color.ORANGE
 	
-	# 播报弹反结果
-	if info_panel:
-		if deflected_count > 0:
-			info_panel.show_success_message("✨ 弹反成功！击退了 " + str(deflected_count) + " 个敌人")
-		else:
-			info_panel.show_message("🎯 弹反释放，但没有击中敌人")
-	
-	# 弹反成功时增加能量
 	if deflected_count > 0:
-		add_energy(deflect_energy_gain)
-		print("⚡ 弹反成功，获得 " + str(deflect_energy_gain) + " 点能量，当前能量: " + str(current_energy))
+		print("✅ 成功弹反 " + str(deflected_count) + " 个敌人")
+		if info_panel:
+			info_panel.show_success_message("🛡️ 弹反成功！击退了 " + str(deflected_count) + " 个敌人")
+		
+		# 增加能量 - 暂时注释
+		# current_energy = min(current_energy + deflect_energy_gain, max_energy)
+		# _update_energy_bar()
+		# print("⚡ 弹反成功，获得 " + str(deflect_energy_gain) + " 点能量，当前能量: " + str(current_energy))
 	
-	# 🎯 只有弹反成功才触发时停
-	trigger_time_stop_on_success(deflected_count)
+	# 🎯 只有弹反成功才触发时停 - 暂时注释
+	# trigger_time_stop_on_success(deflected_count)
 	
 	# 冷却时间后恢复
 	var tree = get_tree()
@@ -213,41 +184,51 @@ func deflect():
 
 func game_over():
 	var tree = get_tree()
-	if tree:
-		await tree.create_timer(1.0).timeout
-		if tree and is_instance_valid(self):
-			tree.reload_current_scene()
+	if not tree:
+		print("Error: Scene tree is null, cannot show game over")
+		return
+
+	# 禁止进一步输入/移动
+	set_physics_process(false)
+	can_deflect = false
+
+	# 调用主节点显示失败界面
+	var main_node = tree.get_first_node_in_group("main")
+	if not main_node:
+		main_node = tree.current_scene
+	if main_node and main_node.has_method("show_game_over"):
+		main_node.show_game_over()
 	else:
-		print("Error: Scene tree is null, cannot reload scene")
+		print("Warning: Main node not found or show_game_over missing")
 
-# 能量条系统函数
-func _initialize_energy_bar():
-	"""初始化能量条引用"""
-	var tree = get_tree()
-	if tree:
-		energy_bar_container = tree.get_first_node_in_group("energy_bar_container")
-		if not energy_bar_container:
-			# 通过路径查找能量条
-			var main_node = tree.get_first_node_in_group("main")
-			if not main_node:
-				main_node = tree.current_scene
-			if main_node:
-				energy_bar_container = main_node.get_node_or_null("UI/EnergyBarContainer")
-				if energy_bar_container:
-					energy_bar = energy_bar_container.get_node_or_null("EnergyBar")
-					_update_energy_bar()
+# 能量条系统函数 - 暂时注释
+# func _initialize_energy_bar():
+# 	"""初始化能量条引用"""
+# 	var tree = get_tree()
+# 	if tree:
+# 		energy_bar_container = tree.get_first_node_in_group("energy_bar_container")
+# 		if not energy_bar_container:
+# 			# 通过路径查找能量条
+# 			var main_node = tree.get_first_node_in_group("main")
+# 			if not main_node:
+# 				main_node = tree.current_scene
+# 			if main_node:
+# 				energy_bar_container = main_node.get_node_or_null("UI/EnergyBarContainer")
+# 				if energy_bar_container:
+# 					energy_bar = energy_bar_container.get_node_or_null("EnergyBar")
+# 					_update_energy_bar()
 
-func _update_energy_bar():
-	"""更新能量条显示"""
-	if energy_bar and energy_bar_container:
-		var energy_percentage = current_energy / max_energy
-		energy_bar.scale.x = energy_percentage
+# func _update_energy_bar():
+# 	"""更新能量条显示"""
+# 	if energy_bar and energy_bar_container:
+# 		var energy_percentage = current_energy / max_energy
+# 		energy_bar.scale.x = energy_percentage
 
-func add_energy(amount: float):
-	"""增加能量"""
-	current_energy = min(current_energy + amount, max_energy)
-	_update_energy_bar()
+# func add_energy(amount: float):
+# 	"""增加能量"""
+# 	current_energy = min(current_energy + amount, max_energy)
+# 	_update_energy_bar()
 
-func can_use_timestop() -> bool:
-	"""检查是否可以使用时停"""
-	return current_energy >= max_energy
+# func can_use_timestop() -> bool:
+# 	"""检查是否可以使用时停"""
+# 	return current_energy >= max_energy
