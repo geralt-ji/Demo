@@ -19,6 +19,15 @@ config/icon="res://icon.svg"
 
 AudioManager="*res://AudioManager.gd"
 
+[layer_names]
+
+2d_physics/layer_1="Player"
+2d_physics/layer_2="MeleeEnemy"
+2d_physics/layer_3="RangedEnemy"
+2d_physics/layer_4="Boss"
+2d_physics/layer_5="PlayerBullet"
+2d_physics/layer_6="EnemyBullet"
+
 [rendering]
 
 renderer/rendering_method="mobile"

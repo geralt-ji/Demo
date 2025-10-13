@@ -1,13 +1,18 @@
-[gd_scene load_steps=4 format=3 uid="uid://d0f3vglvq514h"]
+[gd_scene load_steps=5 format=3 uid="uid://d0f3vglvq514h"]
 
 [ext_resource type="Script" uid="uid://ykt5xdg8gcsl" path="res://Main.gd" id="1_0qm8v"]
 [ext_resource type="Script" uid="uid://dq2n8n2bypfsp" path="res://player.gd" id="1_glv2v"]
 [ext_resource type="Script" uid="uid://chf7ljgkrkqpr" path="res://EnemySpawner.gd" id="2_uu6xs"]
 
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
+size = Vector2(40, 40)
+
 [node name="Node2D" type="Node2D"]
 script = ExtResource("1_0qm8v")
 
 [node name="Player" type="CharacterBody2D" parent="."]
+collision_layer = 1
+collision_mask = 70
 script = ExtResource("1_glv2v")
 
 [node name="ColorRect" type="ColorRect" parent="Player"]
@@ -15,11 +20,33 @@ offset_right = 40.0
 offset_bottom = 40.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Player"]
+shape = SubResource("RectangleShape2D_1")
 
 [node name="EnemySpawner" type="Node2D" parent="."]
 script = ExtResource("2_uu6xs")
 
 [node name="UI" type="CanvasLayer" parent="."]
+
+[node name="WaveDisplay" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -150.0
+offset_top = 20.0
+offset_right = 150.0
+offset_bottom = 80.0
+grow_horizontal = 2
+
+[node name="WaveLabel" type="Label" parent="UI/WaveDisplay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+text = "第一波"
+theme_override_font_sizes/font_size = 32
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="EnergyBarContainer" type="Control" parent="UI"]
 layout_mode = 3

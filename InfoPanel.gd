@@ -60,3 +60,12 @@ func update_deflect_status(can_deflect: bool):
 		show_status("弹反就绪 - 空格键弹反敌人")
 	else:
 		show_status("弹反冷却中...")
+
+func show_e_key_prompt():
+	"""显示E键击杀提示"""
+	show_success_message("⏰ 时停中！按E键击杀敌人！")
+
+func hide_e_key_prompt():
+	"""隐藏E键击杀提示"""
+	clear_message()
+	show_status("弹反就绪 - 空格键弹反敌人")

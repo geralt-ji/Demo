@@ -10,10 +10,15 @@ var info_panel: Control = null
 var hit_sound_played = false  # 防止受击音效重复播放
 
 # 管理器引用
-# var time_stop_effect: Node = null  # 时停功能暂时注释
+var time_stop_effect: Node = null  # 时停功能
 
 # GameEntity 功能
 var game_line_y: float = 0
+
+# 生命值系统
+var max_health = 3
+var current_health = 3
+var health_label: Label
 
 # 时停能量条系统 - 暂时注释
 # var max_energy: float = 100.0
@@ -30,6 +35,9 @@ func _ready():
 	# 设置玩家颜色为蓝色
 	$ColorRect.color = Color.BLUE
 	
+	# 创建生命值显示
+	create_health_display()
+	
 	# 初始化能量条引用 - 暂时注释
 	# call_deferred("_initialize_energy_bar")
 
@@ -39,9 +47,9 @@ func set_info_panel(panel: Control):
 
 
 
-# func set_time_stop_effect(effect: Node):
-# 	"""设置时停特效引用"""
-# 	time_stop_effect = effect
+func set_time_stop_effect(effect: Node):
+	"""设置时停特效引用"""
+	time_stop_effect = effect
 
 func set_game_line(line_y: float):
 	game_line_y = line_y
@@ -95,13 +103,25 @@ func _physics_process(delta):
 					AudioManager.play_hit_sound()
 					hit_sound_played = true
 				if info_panel:
-					info_panel.show_warning_message("💥 被敌人撞到了！游戏结束！")
-				game_over()
+					info_panel.show_warning_message("💥 被敌人撞到了！")
+				
+				# 对玩家造成1点伤害
+				take_damage(1)
+				
+				# 敌人撞击玩家后死亡
+				if enemy.has_method("die"):
+					enemy.die()
 				return
 
 func _input(event):
 	if event.is_action_pressed("ui_accept") or (event is InputEventMouseButton and event.pressed):
 		deflect()
+	
+	# E键确认击杀
+	if event.is_action_pressed("ui_cancel") or (event is InputEventKey and event.pressed and event.keycode == KEY_E):
+		if time_stop_effect and time_stop_effect.has_method("execute_e_key_kill"):
+			time_stop_effect.execute_e_key_kill()
+			print("🗡️ 按下E键，尝试击杀敌人")
 
 # func trigger_time_stop_on_success(deflected_count: int):
 # 	"""弹反成功时触发时停特效"""
@@ -158,10 +178,51 @@ func deflect():
 				
 				deflected_count += 1
 	
+	# 检测附近的子弹并弹反（包括玩家子弹和敌人子弹）
+	var bullets = get_tree().get_nodes_in_group("bullets")
+	var enemy_bullets = get_tree().get_nodes_in_group("enemy_bullets")
+	
+	# 弹反玩家子弹
+	for bullet in bullets:
+		if bullet and is_instance_valid(bullet):
+			var distance = global_position.distance_to(bullet.global_position)
+			if distance <= deflect_range:
+				print("🎯 弹反玩家子弹，距离: " + str(distance))
+				
+				# 🎵 播放弹反音效
+				AudioManager.play_deflect_sound()
+				
+				# 弹反子弹，传递玩家位置用于计算反射角度
+				if bullet.has_method("deflect"):
+					bullet.deflect(global_position)
+				
+				deflected_count += 1
+	
+	# 弹反敌人子弹
+	for enemy_bullet in enemy_bullets:
+		if enemy_bullet and is_instance_valid(enemy_bullet):
+			var distance = global_position.distance_to(enemy_bullet.global_position)
+			if distance <= deflect_range:
+				print("🎯 弹反敌人子弹，距离: " + str(distance))
+				
+				# 🎵 播放弹反音效
+				AudioManager.play_deflect_sound()
+				
+				# 弹反敌人子弹，传递玩家位置用于计算反射角度
+				if enemy_bullet.has_method("deflect"):
+					enemy_bullet.deflect(global_position)
+				
+				deflected_count += 1
+	
 	if deflected_count > 0:
-		print("✅ 成功弹反 " + str(deflected_count) + " 个敌人")
+		print("✅ 成功弹反 " + str(deflected_count) + " 个目标")
 		if info_panel:
-			info_panel.show_success_message("🛡️ 弹反成功！击退了 " + str(deflected_count) + " 个敌人")
+			info_panel.show_success_message("🛡️ 弹反成功！击退了 " + str(deflected_count) + " 个目标")
+		
+		# 触发时停效果
+		if time_stop_effect and time_stop_effect.has_method("trigger_time_stop"):
+			time_stop_effect.trigger_time_stop(global_position)
+			print("⏰ 触发时停效果")
 		
 		# 增加能量 - 暂时注释
 		# current_energy = min(current_energy + deflect_energy_gain, max_energy)
@@ -223,6 +284,38 @@ func game_over():
 # 	if energy_bar and energy_bar_container:
 # 		var energy_percentage = current_energy / max_energy
 # 		energy_bar.scale.x = energy_percentage
+
+func create_health_display():
+	"""创建生命值显示"""
+	health_label = Label.new()
+	health_label.text = str(current_health)
+	health_label.position = Vector2(-10, -60)  # 在玩家头顶显示
+	health_label.add_theme_font_size_override("font_size", 18)
+	health_label.add_theme_color_override("font_color", Color.GREEN)  # 玩家生命值用绿色
+	health_label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	health_label.add_theme_constant_override("shadow_offset_x", 1)
+	health_label.add_theme_constant_override("shadow_offset_y", 1)
+	add_child(health_label)
+
+func take_damage(damage: int):
+	"""受到伤害"""
+	current_health -= damage
+	update_health_display()
+	
+	print("💔 玩家受到 " + str(damage) + " 点伤害，剩余生命值: " + str(current_health))
+	
+	if current_health <= 0:
+		die()
+
+func update_health_display():
+	"""更新生命值显示"""
+	if health_label:
+		health_label.text = str(current_health)
+
+func die():
+	"""玩家死亡处理"""
+	print("💀 玩家死亡！")
+	game_over()
 
 # func add_energy(amount: float):
 # 	"""增加能量"""

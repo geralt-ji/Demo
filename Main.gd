@@ -4,12 +4,15 @@ extends Node2D
 var game_line_y: float
 var info_panel: Control
 
-# 管理器引用 - 时停功能暂时注释
-# var time_stop_effect: Node
+# 管理器引用
+var time_stop_effect: Node
 
 # 失败界面引用
 var game_over_panel: Control
 var restart_button: Button
+
+# 波次显示相关
+var wave_label: Label
 
 func _ready():
 	# 设置背景色
@@ -22,8 +25,8 @@ func _ready():
 	# 将主节点加入组，便于其他脚本查找
 	add_to_group("main")
 	
-	# 创建管理器 - 暂时注释时停管理器
-	# create_managers()
+	# 创建管理器
+	create_managers()
 	
 	# 创建信息播报窗口
 	create_info_panel()
@@ -34,10 +37,23 @@ func _ready():
 	# 设置玩家的游戏线位置
 	$Player.set_game_line(game_line_y)
 	$Player.set_info_panel(info_panel)
-	# $Player.set_time_stop_effect(time_stop_effect)  # 传递时停特效 - 暂时注释
+	$Player.set_time_stop_effect(time_stop_effect)  # 传递时停特效
+	
+	# 连接时停效果的信号到InfoPanel
+	if time_stop_effect:
+		time_stop_effect.e_key_prompt_show.connect(info_panel.show_e_key_prompt)
+		time_stop_effect.e_key_prompt_hide.connect(info_panel.hide_e_key_prompt)
 	
 	# 设置敌人生成器的游戏线位置
 	$EnemySpawner.set_game_line(game_line_y)
+	
+	# 连接敌人生成器的信号
+	$EnemySpawner.wave_started.connect(_on_wave_started)
+	$EnemySpawner.wave_completed.connect(_on_wave_completed)
+	$EnemySpawner.all_waves_completed.connect(_on_all_waves_completed)
+	
+	# 获取波次显示标签
+	wave_label = $UI/WaveDisplay/WaveLabel
 
 func create_info_panel():
 	"""创建信息面板"""
@@ -146,17 +162,17 @@ func _on_restart_pressed():
 	if tree:
 		tree.reload_current_scene()
 
-# func create_managers():
-# 	"""创建特效管理器"""
-# 	# 创建时停特效管理器
-# 	time_stop_effect = Node.new()
-# 	time_stop_effect.name = "TimeStopEffect"
-# 	var timestop_script = load("res://effects/TimeStopEffect.gd")
-# 	time_stop_effect.set_script(timestop_script)
-# 	add_child(time_stop_effect)
-# 	
-# 	print("🎮 特效管理器已创建")
-# 	print("🎵 AudioManager 单例已自动加载")
+func create_managers():
+	"""创建特效管理器"""
+	# 创建时停特效管理器
+	time_stop_effect = Node.new()
+	time_stop_effect.name = "TimeStopEffect"
+	var timestop_script = load("res://effects/TimeStopEffect.gd")
+	time_stop_effect.set_script(timestop_script)
+	add_child(time_stop_effect)
+	
+	print("🎮 特效管理器已创建")
+	print("🎵 AudioManager 单例已自动加载")
 
 func _draw():
 	# 绘制中央线条
@@ -172,3 +188,27 @@ func _draw():
 		var mark_start = Vector2(x, game_line_y - 10)
 		var mark_end = Vector2(x, game_line_y + 10)
 		draw_line(mark_start, mark_end, Color.YELLOW, 2.0)
+
+# 波次信号处理函数
+func _on_wave_started(wave_number: int, wave_name: String):
+	"""波次开始时更新UI"""
+	if wave_label:
+		wave_label.text = wave_name
+		wave_label.add_theme_color_override("font_color", Color.WHITE)
+	
+	if info_panel and info_panel.has_method("show_success_message"):
+		info_panel.show_success_message("🌊 " + wave_name + " 开始！")
+
+func _on_wave_completed(wave_number: int):
+	"""波次完成时的处理"""
+	if info_panel and info_panel.has_method("show_success_message"):
+		info_panel.show_success_message("✅ 第" + str(wave_number) + "波完成！")
+
+func _on_all_waves_completed():
+	"""所有波次完成时的处理"""
+	if wave_label:
+		wave_label.text = "🎉 游戏胜利！"
+		wave_label.add_theme_color_override("font_color", Color.GOLD)
+	
+	if info_panel and info_panel.has_method("show_success_message"):
+		info_panel.show_success_message("🎉 恭喜！所有波次完成！")

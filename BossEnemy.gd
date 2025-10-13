@@ -1,5 +1,8 @@
 extends RigidBody2D
 
+# 敌人死亡信号
+signal enemy_died
+
 # Boss属性
 var dash_speed = 1600  # 增加2倍速度
 var dash_cooldown = 3.0
@@ -9,6 +12,12 @@ var is_dashing = false
 var can_dash = true
 var warning_line: Line2D = null
 var fixed_position_x: float
+var max_health = 3
+var current_health = 3
+var health_label: Label
+
+# 时停相关属性
+var time_scale: float = 1.0
 
 func _ready():
 	add_to_group("enemies")
@@ -20,6 +29,9 @@ func _ready():
 		color_rect.color = Color(0.8, 0.1, 0.1)  # 深红色
 		# Boss比普通怪物大一些
 		color_rect.size = Vector2(60, 60)
+	
+	# 创建生命值显示
+	create_health_display()
 	
 	# 禁用重力
 	gravity_scale = 0
@@ -41,7 +53,7 @@ func _ready():
 	if scene_tree:
 		await scene_tree.create_timer(15.0).timeout
 		if is_instance_valid(self):
-			queue_free()
+			die()
 
 func create_warning_line():
 	"""创建红色警告线"""
@@ -155,3 +167,38 @@ func _physics_process(delta):
 	# Boss不再有独立的碰撞检测逻辑
 	# 让玩家的统一碰撞检测系统处理所有敌人（包括Boss）
 	# 这样Boss也会遵循弹反规则
+
+func create_health_display():
+	"""创建生命值显示"""
+	health_label = Label.new()
+	health_label.text = str(current_health)
+	health_label.position = Vector2(-15, -80)  # 在Boss头顶显示，位置稍高
+	health_label.add_theme_font_size_override("font_size", 20)  # Boss的生命值字体更大
+	health_label.add_theme_color_override("font_color", Color.YELLOW)  # Boss生命值用黄色
+	health_label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	health_label.add_theme_constant_override("shadow_offset_x", 2)
+	health_label.add_theme_constant_override("shadow_offset_y", 2)
+	add_child(health_label)
+
+func take_damage(damage: int):
+	"""受到伤害"""
+	current_health -= damage
+	update_health_display()
+	
+	print("🔥 Boss受到 " + str(damage) + " 点伤害，剩余生命值: " + str(current_health))
+	
+	if current_health <= 0:
+		die()
+
+func update_health_display():
+	"""更新生命值显示"""
+	if health_label:
+		health_label.text = str(current_health)
+
+func die():
+	"""死亡处理"""
+	print("💀 Boss死亡！")
+	can_dash = false  # 停止冲刺
+	hide_warning_line()  # 隐藏警告线
+	enemy_died.emit()
+	queue_free()
